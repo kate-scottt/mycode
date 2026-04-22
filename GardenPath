@@ -2,6 +2,7 @@ source("https://edin.ac/4boOrMs")
 get_my_data("B280847")
 library(tidyverse)
 library(lme4)
+
 #Part A : Garden Path 
 head(gardenpath)
 summary(gardenpath)
@@ -42,6 +43,7 @@ sum(is.na(gardenpath$RSES))
 gardenpath$age_c <- scale(gardenpath$age, center = TRUE, scale = FALSE)
 #does g type vary within participants? no
 table(gardenpath$participant, gardenpath$gtype)
+
 #visualising mean self esteem over time depending on groups - check previous project for the code for this also - the lines touch - does that mean theres an interaction also steep incline after 15 months
 library(ggplot2)
 

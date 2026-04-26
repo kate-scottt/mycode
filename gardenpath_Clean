@@ -1,0 +1,111 @@
+source("https://edin.ac/4boOrMs")
+get_my_data("B280847")
+library(tidyverse)
+library(lme4)
+#Part A : Garden Path 
+head(gardenpath)
+summary(gardenpath)
+length(unique(gardenpath$participant))
+
+#convert to factors
+gardenpath$participant <- as.factor(gardenpath$participant)
+gardenpath$allotment <- as.factor(gardenpath$allotment)
+#remove unexepected gardening type
+gardenpath <- subset(gardenpath, gtype %in% c(1,2,3))
+#recode gardening type
+gardenpath$gtype <- factor(gardenpath$gtype,
+                           levels = c(1,2,3),
+                           labels = c("paired", "community", "solitary"))
+#set reference level
+gardenpath$gtype <- relevel(gardenpath$gtype, ref = "solitary")
+#remove RSES values more than 30
+summary(gardenpath$RSES)
+sum(gardenpath$RSES > 30, na.rm = TRUE)
+gardenpath$RSES[gardenpath$RSES > 30] <- NA
+#concerned about the NAs - check pattern
+table(is.na(gardenpath$RSES))
+aggregate(RSES ~ time, data = gardenpath, function(x) sum(is.na(x)))
+#remove ages more than 25
+sum(gardenpath$age > 25)
+gardenpath$age[gardenpath$age > 25] <- NA
+#check extent of missing data was assessed to determine whether it is substantial enough to bias results
+sum(is.na(gardenpath$RSES))
+#recentering age - 12 - 25 
+gardenpath$age_c <- scale(gardenpath$age, center = TRUE, scale = FALSE)
+
+#complete dataset
+gardenpath_complete <- gardenpath %>%
+  filter(complete.cases(RSES, months, gtype, age_c, prevexp))
+
+#exploratory visualisation
+library(ggplot2)
+
+ggplot(gardenpath, aes(x = months, y = RSES, colour = gtype)) +
+  stat_summary(fun = mean, geom = "line", size = 1.2) +
+  stat_summary(fun = mean, geom = "point") +
+  labs(x = "Months", y = "Self-esteem (RSES)",
+       colour = "Gardening type") +
+  theme_minimal()
+
+#null model + ICC
+null_model <- lmer(RSES ~ 1 +
+    (1 | allotment) +
+    (1 | allotment:participant),
+  data = gardenpath_complete
+)
+
+VarCorr(null_model)
+
+#model building
+#full model with interaction and covariates
+fullmodel <- lmer(
+  RSES ~ months * gtype + age_c + prevexp +
+    (1 + months | participant) +
+    (1 | allotment),
+  data = gardenpath_complete
+)
+
+#test interaction
+nointmod <- lmer(
+  RSES ~ months + gtype + age_c + prevexp +
+    (1 + months | participant) +
+    (1 | allotment),
+  data = gardenpath_complete
+)
+
+anova(nointmod, fullmodel)
+
+#test covariates
+nocovmod <- lmer(
+  RSES ~ months * gtype +
+    (1 + months | participant) +
+    (1 | allotment),
+  data = gardenpath_complete
+)
+
+anova(nocovmod, fullmodel)
+
+# allotment random effects
+noallotmod <- lmer(
+  RSES ~ months * gtype + age_c + prevexp +
+    (1 + months | participant),
+  data = gardenpath_complete
+)
+
+anova(noallotmod, fullmodel)
+
+##final models
+fullmodel_final <- lmer(
+  RSES ~ months * gtype + age_c + prevexp +
+    (1 + months | allotment) +
+    (1 + months | allotment:participant),
+  data = gardenpath_complete)
+
+summary(fullmodel_final)
+#check quadratic term
+quad_model <- lmer(
+  RSES ~ poly(months,2,raw=TRUE)*gtype + age_c + prevexp +
+    (1 + months | allotment) +
+    (1 + months | allotment:participant),
+  data = gardenpath_complete
+)
